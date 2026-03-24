@@ -1,6 +1,6 @@
 class AppConfig {
-  // static const String baseUrl = 'https://trivially-active-bream.ngrok-free.app/api';
-  static const String baseUrl = 'https://unifound-app.vercel.app/api';
+  static const String baseUrl = 'https://trivially-active-bream.ngrok-free.app/api';
+  // static const String baseUrl = 'https://unifound-app.vercel.app/api';
 
   static const String apiTimeout = '30';
 

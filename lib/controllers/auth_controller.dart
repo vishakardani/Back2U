@@ -11,6 +11,9 @@ class AuthController extends GetxController {
   final RxBool isAdmin = false.obs;
   final RxBool isLoading = false.obs;
 
+  bool get isLoggedIn => token.value.isNotEmpty;
+  String get userId => isAdmin.value ? (admin.value?.id ?? '') : (user.value?.id ?? '');
+
   @override
   void onInit() {
     super.onInit();

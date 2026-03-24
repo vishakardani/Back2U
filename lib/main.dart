@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:unifound/widgets/logo.dart';
 import 'services/storage_service.dart';
 import 'controllers/auth_controller.dart';
 import 'screens/auth_screen.dart';
@@ -22,7 +23,7 @@ class MyApp extends StatelessWidget {
     final authController = Get.put(AuthController());
 
     return GetMaterialApp(
-      title: 'UniFOund',
+      title: 'UniFound',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -82,20 +83,14 @@ class MainScaffold extends StatefulWidget {
 class _MainScaffoldState extends State<MainScaffold> {
   int currentIndex = 0;
 
-  // Using IndexedStack to preserve screen states
   final List<Widget> screens = [
     const HomeScreen(),
     const PostScreen(),
-    const InventoryScreen(),
     const ProfileScreen(),
   ];
 
   void _onNavTap(int index) {
-    if (currentIndex == index) {
-      // If tapping the same tab, you could implement scroll to top or refresh
-      return;
-    }
-
+    if (currentIndex == index) return;
     setState(() {
       currentIndex = index;
     });
@@ -104,6 +99,18 @@ class _MainScaffoldState extends State<MainScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        elevation: 1,
+        centerTitle: true,
+        title: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: const Back2ULogo(
+            size: LogoSize.sm,
+            variant: LogoVariant.dark,
+            showSlogan: false,
+          ),
+        ),
+      ),
       body: SafeArea(
         child: IndexedStack(
           index: currentIndex,
@@ -115,52 +122,5 @@ class _MainScaffoldState extends State<MainScaffold> {
         onTap: _onNavTap,
       ),
     );
-  }
-}
-
-// Inventory/Items Screen (placeholder for now)
-class InventoryScreen extends StatelessWidget {
-  const InventoryScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final authController = Get.find<AuthController>();
-
-    return Obx(() {
-      final isAdmin = authController.isAdmin.value;
-
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(isAdmin ? 'All Items' : 'My Items'),
-        ),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.inventory_2_outlined,
-                size: 80,
-                color: Color(0xFF0D9488),
-              ),
-              SizedBox(height: 16),
-              Text(
-                'Inventory Screen',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Coming soon...',
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    });
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
 import 'package:unifound/config/app_config.dart';
 import '../models/item_model.dart';
@@ -7,7 +8,17 @@ import 'dart:io';
 
 
 class ApiService {
-  // Update this with your actual API URL
+  // Auth headers helper
+  static Map<String, String> _getHeaders([String? token]) {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
 
   // Auth endpoints
   static Future<Map<String, dynamic>> register({
@@ -20,7 +31,7 @@ class ApiService {
   }) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/auth/register'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({
         'university_id': universityId,
         'email': email,
@@ -40,7 +51,7 @@ class ApiService {
   }) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/auth/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({
         'university_id': universityId,
         'password': password,
@@ -56,7 +67,7 @@ class ApiService {
   }) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/admin/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({
         'username': username,
         'password': password,
@@ -83,7 +94,7 @@ class ApiService {
       uri = uri.replace(queryParameters: queryParams);
     }
 
-    final response = await http.get(uri);
+    final response = await http.get(uri, headers: _getHeaders());
     final data = _handleResponse(response);
 
     if (data['success'] == true && data['items'] != null) {
@@ -95,13 +106,25 @@ class ApiService {
   }
 
   static Future<UniversityItem> getItemById(String id) async {
-    final response = await http.get(Uri.parse('${AppConfig.baseUrl}/items/$id'));
+    final response = await http.get(Uri.parse('${AppConfig.baseUrl}/items/$id'), headers: _getHeaders());
     final data = _handleResponse(response);
 
     if (data['success'] == true && data['item'] != null) {
       return UniversityItem.fromJson(data['item']);
     }
     throw Exception('Item not found');
+  }
+
+  static Future<List<UniversityItem>> getRelatedItems(String id) async {
+    final response = await http.get(Uri.parse('${AppConfig.baseUrl}/items/$id/related'), headers: _getHeaders());
+    final data = _handleResponse(response);
+
+    if (data['success'] == true && data['items'] != null) {
+      return (data['items'] as List)
+          .map((item) => UniversityItem.fromJson(item))
+          .toList();
+    }
+    return [];
   }
 
   static Future<Map<String, dynamic>> createItem({
@@ -116,10 +139,7 @@ class ApiService {
   }) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/items'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: _getHeaders(token),
       body: jsonEncode({
         'category_id': categoryId,
         'item_type': itemType,
@@ -141,10 +161,7 @@ class ApiService {
   }) async {
     final response = await http.patch(
       Uri.parse('${AppConfig.baseUrl}/items/$itemId'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: _getHeaders(token),
       body: jsonEncode(data),
     );
 
@@ -157,12 +174,96 @@ class ApiService {
   }) async {
     final response = await http.delete(
       Uri.parse('${AppConfig.baseUrl}/items/$itemId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
+      headers: _getHeaders(token),
     );
 
     _handleResponse(response);
+  }
+
+  // Claims endpoints
+  static Future<Map<String, dynamic>> raiseClaim({
+    required String token,
+    required String itemId,
+    String? message,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/claims'),
+      headers: _getHeaders(token),
+      body: jsonEncode({
+        'item_id': itemId,
+        'message': message ?? '',
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<List<dynamic>> getMyClaims({
+    required String token,
+    String? status,
+  }) async {
+    var uri = Uri.parse('${AppConfig.baseUrl}/claims/my');
+    if (status != null) {
+      uri = uri.replace(queryParameters: {'status': status});
+    }
+
+    final response = await http.get(
+      uri,
+      headers: _getHeaders(token),
+    );
+
+    final data = _handleResponse(response);
+    if (data['success'] == true && data['claims'] != null) {
+      return data['claims'];
+    }
+    return [];
+  }
+
+  static Future<List<dynamic>> getReceivedClaims({
+    required String token,
+    String? status,
+  }) async {
+    var uri = Uri.parse('${AppConfig.baseUrl}/claims/received');
+    if (status != null) {
+      uri = uri.replace(queryParameters: {'status': status});
+    }
+
+    final response = await http.get(
+      uri,
+      headers: _getHeaders(token),
+    );
+
+    final data = _handleResponse(response);
+    if (data['success'] == true && data['claims'] != null) {
+      return data['claims'];
+    }
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> confirmClaim({
+    required String token,
+    required String claimId,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('${AppConfig.baseUrl}/claims/$claimId/confirm'),
+      headers: _getHeaders(token),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> rejectClaim({
+    required String token,
+    required String claimId,
+    required String rejectionReason,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('${AppConfig.baseUrl}/claims/$claimId/reject'),
+      headers: _getHeaders(token),
+      body: jsonEncode({'rejection_reason': rejectionReason}),
+    );
+
+    return _handleResponse(response);
   }
 
   // User endpoints
@@ -183,7 +284,7 @@ class ApiService {
 
     final response = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $token'},
+      headers: _getHeaders(token),
     );
 
     final data = _handleResponse(response);
@@ -199,7 +300,7 @@ class ApiService {
   static Future<AuthUser> getUserProfile(String token) async {
     final response = await http.get(
       Uri.parse('${AppConfig.baseUrl}/users/profile'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: _getHeaders(token),
     );
 
     final data = _handleResponse(response);
@@ -225,10 +326,7 @@ class ApiService {
 
     final response = await http.patch(
       Uri.parse('${AppConfig.baseUrl}/users/profile'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: _getHeaders(token),
       body: jsonEncode(body),
     );
 
@@ -237,7 +335,7 @@ class ApiService {
 
   // Categories endpoint
   static Future<List<Category>> getCategories() async {
-    final response = await http.get(Uri.parse('${AppConfig.baseUrl}/categories'));
+    final response = await http.get(Uri.parse('${AppConfig.baseUrl}/categories'), headers: _getHeaders());
     final data = _handleResponse(response);
 
     if (data['success'] == true && data['categories'] != null) {
@@ -252,7 +350,7 @@ class ApiService {
   static Future<AdminStats> getAdminStats(String token) async {
     final response = await http.get(
       Uri.parse('${AppConfig.baseUrl}/admin/stats'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: _getHeaders(token),
     );
 
     final data = _handleResponse(response);
@@ -265,12 +363,38 @@ class ApiService {
 
   // Helper method
   static Map<String, dynamic> _handleResponse(http.Response response) {
-    final data = jsonDecode(response.body);
+    // DEBUG LOG: FULL RESPONSE
+    debugPrint('--- API RESPONSE START ---');
+    debugPrint('URL: ${response.request?.url}');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+    debugPrint('--- API RESPONSE END ---');
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return data;
-    } else {
-      throw Exception(data['error'] ?? 'Request failed');
+    if (response.body.isEmpty) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true};
+      }
+      throw Exception('Empty response from server (Status: ${response.statusCode})');
+    }
+
+    try {
+      final data = jsonDecode(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return data;
+      } else {
+        throw Exception(data['error'] ?? 'Request failed (Status: ${response.statusCode})');
+      }
+    } catch (e) {
+      if (response.statusCode == 404) {
+        throw Exception('Endpoint not found (404). Please check the API URL.');
+      }
+      if (response.statusCode == 500) {
+        throw Exception('Internal Server Error (500). Please try again later.');
+      }
+      if (e is FormatException) {
+        throw Exception('Server returned invalid data (HTML/Error page). Status: ${response.statusCode}');
+      }
+      throw Exception('Request failed (Status: ${response.statusCode})');
     }
   }
 
@@ -284,7 +408,7 @@ class ApiService {
         Uri.parse('${AppConfig.baseUrl}/upload'),
       );
 
-      request.headers['Authorization'] = 'Bearer $token';
+      request.headers.addAll(_getHeaders(token));
 
       // Add the image file
       var multipartFile = await http.MultipartFile.fromPath(

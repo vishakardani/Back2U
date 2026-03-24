@@ -6,6 +6,7 @@ import 'package:unifound/utils/category_icon_mapper.dart';
 import '../controllers/home_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../models/item_model.dart';
+import 'item_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -231,220 +232,235 @@ class HomeScreen extends StatelessWidget {
       formattedDate = item.dateLostFound;
     }
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey[200]!, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              // Image or placeholder
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                child: item.images.isNotEmpty
-                    ? CachedNetworkImage(
-                  imageUrl: item.images.first.thumbnailUrl,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
+    return GestureDetector(
+      onTap: () => Get.to(() => ItemDetailScreen(item: item)),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey[200]!, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                // Image or placeholder
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  child: item.images.isNotEmpty
+                      ? CachedNetworkImage(
+                    imageUrl: item.images.first.thumbnailUrl,
                     height: 180,
                     width: double.infinity,
-                    color: Colors.grey[200],
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF0D9488),
-                        strokeWidth: 2,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      height: 180,
+                      width: double.infinity,
+                      color: Colors.grey[200],
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF0D9488),
+                          strokeWidth: 2,
+                        ),
                       ),
                     ),
-                  ),
-                  errorWidget: (context, url, error) => _buildNoImagePlaceholder(item),
-                )
-                    : _buildNoImagePlaceholder(item),
+                    errorWidget: (context, url, error) => _buildNoImagePlaceholder(item),
+                  )
+                      : _buildNoImagePlaceholder(item),
 
-              ),
-
-              // Lost/Found Badge
-              Positioned(
-                top: 16,
-                left: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: item.itemType == 'found' ? const Color(0xFF0D9488) : const Color(0xFFE11D48),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (item.itemType == 'found' ? const Color(0xFF0D9488) : const Color(0xFFE11D48))
-                            .withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    item.itemType.toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
                 ),
-              ),
 
-              // Claimed Badge
-              if (item.isClaimed)
+                // Lost/Found Badge
                 Positioned(
                   top: 16,
-                  right: isAdmin ? 80 : 16,
+                  left: 16,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.green,
+                      color: item.itemType == 'found' ? const Color(0xFF0D9488) : const Color(0xFFE11D48),
                       borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.white, size: 12),
-                        SizedBox(width: 4),
-                        Text(
-                          'CLAIMED',
-                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (item.itemType == 'found' ? const Color(0xFF0D9488) : const Color(0xFFE11D48))
+                              .withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
+                    child: Text(
+                      item.itemType.toUpperCase(),
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
 
-              // Admin Delete Button
-              if (isAdmin)
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: Row(
-                    children: [
-                      _adminTool(Icons.delete_outline, Colors.red, () {
-                        Get.dialog(
-                          AlertDialog(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            title: const Text('Delete Item'),
-                            content: const Text('Are you sure you want to delete this item?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Get.back(),
-                                child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  controller.deleteItem(item.id);
-                                  Get.back();
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                // Claimed Badge
+                if (item.isClaimed)
+                  Positioned(
+                    top: 16,
+                    right: isAdmin ? 80 : 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 12),
+                          SizedBox(width: 4),
+                          Text(
+                            'CLAIMED',
+                            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Admin Delete Button
+                if (isAdmin)
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Row(
+                      children: [
+                        _adminTool(Icons.delete_outline, Colors.red, () {
+                          Get.dialog(
+                            AlertDialog(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: const Text('Delete Item'),
+                              content: const Text('Are you sure you want to delete this item?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Get.back(),
+                                  child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
                                 ),
-                                child: const Text('Delete'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
+                                ElevatedButton(
+                                  onPressed: () {
+                                    controller.deleteItem(item.id);
+                                    Get.back();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
-                ),
-            ],
-          ),
-
-          // Item Details
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.itemName,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (item.category != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.teal[50],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          item.category!.name.toUpperCase(),
-                          style: const TextStyle(
-                            color: Color(0xFF0D9488),
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item.description ?? 'No description',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF0D9488)),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        item.location,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey[400]),
-                    const SizedBox(width: 4),
-                    Text(
-                      formattedDate,
-                      style: TextStyle(fontSize: 10, color: Colors.grey[600], fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                if (item.user != null) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(Icons.person_outline, size: 14, color: Colors.grey[400]),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Posted by ${item.user!.fullName}',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
-          ),
-        ],
+
+            // Item Details
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.itemName,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (item.category != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.teal[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            item.category!.name.toUpperCase(),
+                            style: const TextStyle(
+                              color: Color(0xFF0D9488),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    item.description ?? 'No description',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF0D9488)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          item.location,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey[400]),
+                      const SizedBox(width: 4),
+                      Text(
+                        formattedDate,
+                        style: TextStyle(fontSize: 10, color: Colors.grey[600], fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  if (item.user != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.person_outline, size: 14, color: Colors.grey[400]),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Posted by ${item.user!.firstName} ${item.user!.lastName}',
+                                style: TextStyle(fontSize: 11, color: Colors.grey[700], fontWeight: FontWeight.w600),
+                              ),
+                              if (item.user!.email != null)
+                                Text(
+                                  item.user!.email!,
+                                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

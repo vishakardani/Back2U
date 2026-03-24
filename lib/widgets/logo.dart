@@ -41,7 +41,7 @@ class _Back2ULogoState extends State<Back2ULogo> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final scale = widget.size == LogoSize.lg ? 1.0 : 0.45;
+    final scale = widget.size == LogoSize.lg ? 1.0 : 0.33;
     final textColor = widget.variant == LogoVariant.light ? Colors.white : const Color(0xFF0F172A);
     final brandColor = widget.variant == LogoVariant.light ? const Color(0xFF2DD4BF) : const Color(0xFF0D9488);
 

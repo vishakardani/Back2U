@@ -16,8 +16,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool isAdminMode = false;
   bool isRegistering = false;
+  bool _obscurePassword = true; // 👈 added
 
-  // Initialize controllers without default values
   late final TextEditingController universityIdController;
   late final TextEditingController passwordController;
   final firstNameController = TextEditingController();
@@ -29,11 +29,9 @@ class _AuthScreenState extends State<AuthScreen> {
   void initState() {
     super.initState();
 
-    // Initialize controllers with default values
     universityIdController = TextEditingController(text: '21DCS001');
     passwordController = TextEditingController(text: 'Test@123');
 
-    // Check if already logged in
     if (authController.token.value.isNotEmpty) {
       Future.microtask(() => Get.off(() => const MainScaffold()));
     }
@@ -50,7 +48,6 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _handleLogin() async {
-    // Validation
     if (universityIdController.text.trim().isEmpty) {
       Get.snackbar(
         'Error',
@@ -93,7 +90,6 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _handleRegister() async {
-    // Validation
     if (universityIdController.text.trim().isEmpty) {
       Get.snackbar(
         'Error',
@@ -189,6 +185,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       setState(() {
                         isAdminMode = false;
                         isRegistering = false;
+                        _obscurePassword = true; // 👈 reset on role switch
                         _clearFields();
                         _updateDefaultCredentials();
                       });
@@ -203,6 +200,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       setState(() {
                         isAdminMode = true;
                         isRegistering = false;
+                        _obscurePassword = true; // 👈 reset on role switch
                         _clearFields();
                         _updateDefaultCredentials();
                       });
@@ -229,6 +227,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             () {
                           setState(() {
                             isRegistering = false;
+                            _obscurePassword = true; // 👈 reset on toggle
                             _clearFields();
                             _updateDefaultCredentials();
                           });
@@ -240,6 +239,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             () {
                           setState(() {
                             isRegistering = true;
+                            _obscurePassword = true; // 👈 reset on toggle
                             _clearFields();
                           });
                         },
@@ -288,11 +288,27 @@ class _AuthScreenState extends State<AuthScreen> {
               ],
 
               const SizedBox(height: 16),
+
+              // 👇 Password field with eye toggle
               _buildField(
                 Icons.lock_outline,
                 "Password",
                 passwordController,
-                obscure: true,
+                obscure: _obscurePassword,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
               ),
 
               const SizedBox(height: 40),
@@ -304,9 +320,13 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: ElevatedButton(
                   onPressed: authController.isLoading.value
                       ? null
-                      : (isRegistering && !isAdminMode ? _handleRegister : _handleLogin),
+                      : (isRegistering && !isAdminMode
+                      ? _handleRegister
+                      : _handleLogin),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isAdminMode ? const Color(0xFFE11D48) : const Color(0xFF1E293B),
+                    backgroundColor: isAdminMode
+                        ? const Color(0xFFE11D48)
+                        : const Color(0xFF1E293B),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -494,6 +514,7 @@ class _AuthScreenState extends State<AuthScreen> {
       TextEditingController controller, {
         bool obscure = false,
         TextInputType keyboardType = TextInputType.text,
+        Widget? suffixIcon, // 👈 added
       }) {
     return TextField(
       controller: controller,
@@ -502,6 +523,7 @@ class _AuthScreenState extends State<AuthScreen> {
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: Colors.grey, size: 20),
+        suffixIcon: suffixIcon, // 👈 added
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
         filled: true,
@@ -531,7 +553,6 @@ class _AuthScreenState extends State<AuthScreen> {
     lastNameController.clear();
     emailController.clear();
     phoneController.clear();
-    // Don't clear username and password when switching roles
   }
 
   @override

@@ -51,12 +51,6 @@ class CustomBottomNavBar extends StatelessWidget {
             ),
             _navItem(
               index: 2,
-              icon: isAdmin ? Icons.shield_outlined : Icons.inventory_2_outlined,
-              activeIcon: isAdmin ? Icons.shield : Icons.inventory_2,
-              activeColor: activeColor,
-            ),
-            _navItem(
-              index: 3,
               icon: Icons.person_outline,
               activeIcon: Icons.person,
               activeColor: activeColor,

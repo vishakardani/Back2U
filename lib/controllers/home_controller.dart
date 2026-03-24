@@ -35,14 +35,6 @@ class HomeController extends GetxController {
     try {
       isRefreshing.value = true;
       await loadData();
-     /* Get.snackbar(
-        'Refreshed',
-        'Data updated successfully',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: const Color(0xFF0D9488),
-        colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );*/
     } catch (e) {
       Get.snackbar(
         'Refresh Failed',
@@ -69,12 +61,16 @@ class HomeController extends GetxController {
         categoryId = selectedCategoryId.value;
       }
 
+
+
+      // Hide claimed items from the main feed
       final fetchedItems = await ApiService.getItems(
         type: type,
         categoryId: categoryId,
+        claimed: 'false',
       );
-
       items.value = fetchedItems;
+      print('Fetched items: $fetchedItems');
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -170,59 +166,6 @@ class HomeController extends GetxController {
       Get.snackbar(
         'Error',
         'Failed to delete item: ${_parseError(e)}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
-
-  Future<void> markAsClaimed(String itemId) async {
-    try {
-      await ApiService.updateItem(
-        token: authController.token.value,
-        itemId: itemId,
-        data: {'is_claimed': true, 'claimed_at': DateTime.now().toIso8601String()},
-      );
-
-      // Update local item
-      final index = items.indexWhere((item) => item.id == itemId);
-      if (index != -1) {
-        items[index] = UniversityItem(
-          id: items[index].id,
-          userId: items[index].userId,
-          categoryId: items[index].categoryId,
-          itemType: items[index].itemType,
-          itemName: items[index].itemName,
-          description: items[index].description,
-          location: items[index].location,
-          dateLostFound: items[index].dateLostFound,
-          images: items[index].images,
-          isClaimed: true,
-          isActive: items[index].isActive,
-          createdAt: items[index].createdAt,
-          user: items[index].user,
-          category: items[index].category,
-        );
-        items.refresh();
-      }
-
-      Get.snackbar(
-        'Success',
-        'Item marked as claimed',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF0D9488),
-        colorText: Colors.white,
-      );
-
-      // Refresh stats if admin
-      if (authController.isAdmin.value) {
-        fetchAdminStats();
-      }
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to update item: ${_parseError(e)}',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
