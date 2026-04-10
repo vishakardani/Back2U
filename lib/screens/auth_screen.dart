@@ -16,7 +16,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool isAdminMode = false;
   bool isRegistering = false;
-  bool _obscurePassword = true; // 👈 added
+  bool _obscurePassword = true;
 
   late final TextEditingController universityIdController;
   late final TextEditingController passwordController;
@@ -162,12 +162,15 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final themeColor = isAdminMode ? const Color(0xFFE11D48) : const Color(0xFF0D9488);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom; // 👈 keyboard height
 
     return Scaffold(
+      resizeToAvoidBottomInset: true, // 👈 added
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 60),
+          // ✅ Dynamic bottom padding accounts for keyboard height
+          padding: EdgeInsets.fromLTRB(32, 60, 32, bottomInset + 40),
           child: Column(
             children: [
               const Back2ULogo(showSlogan: true),
@@ -185,7 +188,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       setState(() {
                         isAdminMode = false;
                         isRegistering = false;
-                        _obscurePassword = true; // 👈 reset on role switch
+                        _obscurePassword = true;
                         _clearFields();
                         _updateDefaultCredentials();
                       });
@@ -200,7 +203,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       setState(() {
                         isAdminMode = true;
                         isRegistering = false;
-                        _obscurePassword = true; // 👈 reset on role switch
+                        _obscurePassword = true;
                         _clearFields();
                         _updateDefaultCredentials();
                       });
@@ -227,7 +230,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             () {
                           setState(() {
                             isRegistering = false;
-                            _obscurePassword = true; // 👈 reset on toggle
+                            _obscurePassword = true;
                             _clearFields();
                             _updateDefaultCredentials();
                           });
@@ -239,7 +242,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             () {
                           setState(() {
                             isRegistering = true;
-                            _obscurePassword = true; // 👈 reset on toggle
+                            _obscurePassword = true;
                             _clearFields();
                           });
                         },
@@ -250,7 +253,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
               const SizedBox(height: 30),
 
-              // Form Fields
+              // University ID / Admin Username
               _buildField(
                 Icons.badge_outlined,
                 isAdminMode ? "Admin Username" : "University ID",
@@ -289,7 +292,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
               const SizedBox(height: 16),
 
-              // 👇 Password field with eye toggle
+              // Password field with eye toggle
               _buildField(
                 Icons.lock_outline,
                 "Password",
@@ -489,7 +492,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 color: Colors.black.withOpacity(0.05),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
-              )
+              ),
             ]
                 : [],
           ),
@@ -514,7 +517,7 @@ class _AuthScreenState extends State<AuthScreen> {
       TextEditingController controller, {
         bool obscure = false,
         TextInputType keyboardType = TextInputType.text,
-        Widget? suffixIcon, // 👈 added
+        Widget? suffixIcon,
       }) {
     return TextField(
       controller: controller,
@@ -523,7 +526,7 @@ class _AuthScreenState extends State<AuthScreen> {
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: Colors.grey, size: 20),
-        suffixIcon: suffixIcon, // 👈 added
+        suffixIcon: suffixIcon,
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
         filled: true,

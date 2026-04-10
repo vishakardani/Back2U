@@ -27,7 +27,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   void initState() {
     super.initState();
     _fetchRelatedItems();
-    // 👇 Ensure claims are loaded so receivedClaims is populated
     claimController.fetchClaims();
   }
 
@@ -94,7 +93,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
     final isOwner = authController.userId == widget.item.userId;
     final isAdmin = authController.isAdmin.value;
-    final canClaim = !isOwner && widget.item.itemType == 'found' && !widget.item.isClaimed;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -192,10 +190,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                   // Posted By
                   _buildUserInfo(),
 
-                  // 👇 Owner: show claims list | Non-owner: show raise claim button
+                  // ✅ Fixed: owner sees claims, everyone else sees raise claim button
                   if (isOwner)
                     _buildOwnerClaimsSection()
-                  else if (canClaim)
+
+                  else if (widget.item.itemType == 'found')
                     _buildRaiseClaimButton(),
 
                   // Related Items
@@ -220,7 +219,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  // 👇 New: Owner's claim list section
   Widget _buildOwnerClaimsSection() {
     return Obx(() {
       final itemClaims = claimController.receivedClaims
@@ -253,7 +251,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             ],
           ),
           const SizedBox(height: 16),
-
           if (claimController.isLoading.value)
             const Center(child: CircularProgressIndicator(color: Color(0xFF0D9488)))
           else if (itemClaims.isEmpty)
@@ -297,7 +294,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Claimant Info + Status
+                      // Claimant Info + Status Badge
                       Row(
                         children: [
                           CircleAvatar(
@@ -324,7 +321,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                               ],
                             ),
                           ),
-                          // Status Badge
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
@@ -369,7 +365,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                         ),
                       ],
 
-                      // Confirm / Reject Buttons (only for pending)
+                      // Confirm / Reject Buttons
                       if (claim.status == 'pending') ...[
                         const SizedBox(height: 16),
                         Row(
@@ -421,11 +417,40 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     });
   }
 
-  // 👇 Non-owner raise claim button (extracted from build)
   Widget _buildRaiseClaimButton() {
     return Obx(() {
       final alreadyClaimed = claimController.hasClaimed(widget.item.id);
       final isLoading = claimController.isLoading.value;
+
+      // ✅ Fixed: hide button entirely if item is already claimed by someone else
+      if (widget.item.isClaimed && !alreadyClaimed) {
+        return Padding(
+          padding: const EdgeInsets.only(top: 32),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.green[200]!),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline, color: Colors.green[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'This item has already been claimed',
+                  style: TextStyle(
+                    color: Colors.green[700],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
 
       return Padding(
         padding: const EdgeInsets.only(top: 32),
@@ -443,7 +468,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 ? const CircularProgressIndicator(color: Colors.white)
                 : Text(
               alreadyClaimed ? "Claim Raised" : "Raise Claim",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
         ),

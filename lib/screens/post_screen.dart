@@ -36,6 +36,19 @@ class _PostScreenState extends State<PostScreen> {
       return;
     }
 
+    // ✅ Photo mandatory for found items
+    if (postController.itemType.value == 'found' &&
+        postController.localImages.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please upload at least one photo for a found item',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     final success = await postController.createItem(
       categoryId: postController.selectedCategoryId.value,
       itemName: itemNameController.text,
@@ -77,8 +90,13 @@ class _PostScreenState extends State<PostScreen> {
 
                 const SizedBox(height: 24),
 
-                // Image Upload Section
-                const Text('Item Photos (Optional)', style: TextStyle(fontWeight: FontWeight.bold)),
+                // ✅ Dynamic label based on item type
+                Obx(() => Text(
+                  postController.itemType.value == 'found'
+                      ? 'Item Photos *'
+                      : 'Item Photos (Optional)',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                )),
                 const SizedBox(height: 8),
                 _buildImageSection(),
 
@@ -204,9 +222,13 @@ class _PostScreenState extends State<PostScreen> {
                         : const Text('POST ITEM', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
+
+                const SizedBox(height: 24),
               ],
             ),
           ),
+
+          // Upload overlay
           if (postController.isUploadingImage.value)
             Container(
               color: Colors.black54,
@@ -296,19 +318,38 @@ class _PostScreenState extends State<PostScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF0D9488), style: BorderStyle.solid),
+                  border: Border.all(
+                    // ✅ Red border hint when found type and no image selected
+                    color: postController.itemType.value == 'found' &&
+                        postController.localImages.isEmpty
+                        ? Colors.red
+                        : const Color(0xFF0D9488),
+                    style: BorderStyle.solid,
+                  ),
                   borderRadius: BorderRadius.circular(12),
-                  color: const Color(0xFF0D9488).withOpacity(0.05),
+                  color: postController.itemType.value == 'found' &&
+                      postController.localImages.isEmpty
+                      ? Colors.red.withOpacity(0.04)
+                      : const Color(0xFF0D9488).withOpacity(0.05),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_photo_alternate, color: Color(0xFF0D9488)),
-                    SizedBox(width: 8),
+                    Icon(
+                      Icons.add_photo_alternate,
+                      color: postController.itemType.value == 'found' &&
+                          postController.localImages.isEmpty
+                          ? Colors.red
+                          : const Color(0xFF0D9488),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Add Photo (Max 5MB)',
                       style: TextStyle(
-                        color: Color(0xFF0D9488),
+                        color: postController.itemType.value == 'found' &&
+                            postController.localImages.isEmpty
+                            ? Colors.red
+                            : const Color(0xFF0D9488),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -316,6 +357,22 @@ class _PostScreenState extends State<PostScreen> {
                 ),
               ),
             ),
+
+          // ✅ Required hint for found items
+          if (postController.itemType.value == 'found' &&
+              postController.localImages.isEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, size: 14, color: Colors.red),
+                const SizedBox(width: 6),
+                Text(
+                  'Photo is required for found items',
+                  style: TextStyle(fontSize: 12, color: Colors.red[600]),
+                ),
+              ],
+            ),
+          ],
 
           if (postController.localImages.length >= 5)
             Container(
