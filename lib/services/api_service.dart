@@ -1,11 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
 import 'package:unifound/config/app_config.dart';
 import '../models/item_model.dart';
 import '../models/auth_model.dart';
-import 'dart:io';
-
 
 class ApiService {
   // Auth headers helper
@@ -20,7 +19,10 @@ class ApiService {
     return headers;
   }
 
-  // Auth endpoints
+  // ==========================
+  // Auth Endpoints
+  // ==========================
+
   static Future<Map<String, dynamic>> register({
     required String universityId,
     required String email,
@@ -34,30 +36,92 @@ class ApiService {
       headers: _getHeaders(),
       body: jsonEncode({
         'university_id': universityId,
-        'email': email,
+        'email': email.trim().toLowerCase(),
         'password': password,
         'first_name': firstName,
         'last_name': lastName,
         'phone': phone,
       }),
     );
-
     return _handleResponse(response);
   }
 
+  /// FIXED LOGIN METHOD: Accepts email, but sends it under the 'university_id' key 
+  /// to satisfy backend requirements while letting users type their email.
   static Future<Map<String, dynamic>> login({
-    required String universityId,
+    required String email,
     required String password,
   }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    
+    // 💡 SMART WORKAROUND:
+    // If they typed an email like 'd25ce153@charusat.edu.in', 
+    // this extracts 'd25ce153' and changes it to 'D25CE153' to match your database column!
+    String derivedUniversityId = cleanEmail;
+    if (cleanEmail.contains('@')) {
+      derivedUniversityId = cleanEmail.split('@')[0].toUpperCase();
+    } else {
+      // If they typed just their ID 'd25ce153', it still capitalizes it to 'D25CE153'
+      derivedUniversityId = cleanEmail.toUpperCase();
+    }
+    
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/auth/login'),
       headers: _getHeaders(),
       body: jsonEncode({
-        'university_id': universityId,
+        'university_id': derivedUniversityId, // Sends "D25CE153" to match database lookup
+        'email': cleanEmail,                 // Sends full email for system logs
         'password': password,
       }),
     );
+    return _handleResponse(response);
+  }
 
+  static Future<Map<String, dynamic>> googleSignIn({
+    required String idToken,
+    required String email,
+    required String firstName,
+    required String lastName,
+    String? photoUrl,
+    String? googleUserId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/auth/google-signin'),
+      headers: _getHeaders(),
+      body: jsonEncode({
+        'id_token': idToken,
+        'email': email.trim().toLowerCase(),
+        'first_name': firstName,
+        'last_name': lastName,
+        'photo_url': photoUrl,
+        'google_user_id': googleUserId,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> registerWithGoogle({
+    required String idToken,
+    required String email,
+    required String firstName,
+    required String lastName,
+    String? photoUrl,
+    String? googleUserId,
+    required String phone,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/auth/register-google'),
+      headers: _getHeaders(),
+      body: jsonEncode({
+        'id_token': idToken,
+        'email': email.trim().toLowerCase(),
+        'first_name': firstName,
+        'last_name': lastName,
+        'phone': phone,
+        'photo_url': photoUrl,
+        'google_user_id': googleUserId,
+      }),
+    );
     return _handleResponse(response);
   }
 
@@ -69,22 +133,23 @@ class ApiService {
       Uri.parse('${AppConfig.baseUrl}/admin/login'),
       headers: _getHeaders(),
       body: jsonEncode({
-        'username': username,
+        'username': username.trim(),
         'password': password,
       }),
     );
-
     return _handleResponse(response);
   }
 
-  // Items endpoints
+  // ==========================
+  // Items Endpoints
+  // ==========================
+
   static Future<List<UniversityItem>> getItems({
     String? type,
     String? categoryId,
     String? claimed,
   }) async {
     var uri = Uri.parse('${AppConfig.baseUrl}/items');
-
     Map<String, String> queryParams = {};
     if (type != null) queryParams['type'] = type;
     if (categoryId != null) queryParams['category'] = categoryId;
@@ -96,11 +161,8 @@ class ApiService {
 
     final response = await http.get(uri, headers: _getHeaders());
     final data = _handleResponse(response);
-
     if (data['success'] == true && data['items'] != null) {
-      return (data['items'] as List)
-          .map((item) => UniversityItem.fromJson(item))
-          .toList();
+      return (data['items'] as List).map((item) => UniversityItem.fromJson(item)).toList();
     }
     return [];
   }
@@ -108,21 +170,15 @@ class ApiService {
   static Future<UniversityItem> getItemById(String id) async {
     final response = await http.get(Uri.parse('${AppConfig.baseUrl}/items/$id'), headers: _getHeaders());
     final data = _handleResponse(response);
-
-    if (data['success'] == true && data['item'] != null) {
-      return UniversityItem.fromJson(data['item']);
-    }
+    if (data['success'] == true && data['item'] != null) return UniversityItem.fromJson(data['item']);
     throw Exception('Item not found');
   }
 
   static Future<List<UniversityItem>> getRelatedItems(String id) async {
     final response = await http.get(Uri.parse('${AppConfig.baseUrl}/items/$id/related'), headers: _getHeaders());
     final data = _handleResponse(response);
-
     if (data['success'] == true && data['items'] != null) {
-      return (data['items'] as List)
-          .map((item) => UniversityItem.fromJson(item))
-          .toList();
+      return (data['items'] as List).map((item) => UniversityItem.fromJson(item)).toList();
     }
     return [];
   }
@@ -150,7 +206,6 @@ class ApiService {
         'images': images ?? [],
       }),
     );
-
     return _handleResponse(response);
   }
 
@@ -164,23 +219,18 @@ class ApiService {
       headers: _getHeaders(token),
       body: jsonEncode(data),
     );
-
     return _handleResponse(response);
   }
 
-  static Future<void> deleteItem({
-    required String token,
-    required String itemId,
-  }) async {
-    final response = await http.delete(
-      Uri.parse('${AppConfig.baseUrl}/items/$itemId'),
-      headers: _getHeaders(token),
-    );
-
+  static Future<void> deleteItem({required String token, required String itemId}) async {
+    final response = await http.delete(Uri.parse('${AppConfig.baseUrl}/items/$itemId'), headers: _getHeaders(token));
     _handleResponse(response);
   }
 
-  // Claims endpoints
+  // ==========================
+  // Claims Endpoints
+  // ==========================
+
   static Future<Map<String, dynamic>> raiseClaim({
     required String token,
     required String itemId,
@@ -189,125 +239,68 @@ class ApiService {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/claims'),
       headers: _getHeaders(token),
-      body: jsonEncode({
-        'item_id': itemId,
-        'message': message ?? '',
-      }),
+      body: jsonEncode({'item_id': itemId, 'message': message ?? ''}),
     );
-
     return _handleResponse(response);
   }
 
-  static Future<List<dynamic>> getMyClaims({
-    required String token,
-    String? status,
-  }) async {
+  static Future<List<dynamic>> getMyClaims({required String token, String? status}) async {
     var uri = Uri.parse('${AppConfig.baseUrl}/claims/my');
-    if (status != null) {
-      uri = uri.replace(queryParameters: {'status': status});
-    }
-
-    final response = await http.get(
-      uri,
-      headers: _getHeaders(token),
-    );
-
+    if (status != null) uri = uri.replace(queryParameters: {'status': status});
+    final response = await http.get(uri, headers: _getHeaders(token));
     final data = _handleResponse(response);
-    if (data['success'] == true && data['claims'] != null) {
-      return data['claims'];
-    }
-    return [];
+    return (data['success'] == true && data['claims'] != null) ? data['claims'] : [];
   }
 
-  static Future<List<dynamic>> getReceivedClaims({
-    required String token,
-    String? status,
-  }) async {
+  static Future<List<dynamic>> getReceivedClaims({required String token, String? status}) async {
     var uri = Uri.parse('${AppConfig.baseUrl}/claims/received');
-    if (status != null) {
-      uri = uri.replace(queryParameters: {'status': status});
-    }
-
-    final response = await http.get(
-      uri,
-      headers: _getHeaders(token),
-    );
-
+    if (status != null) uri = uri.replace(queryParameters: {'status': status});
+    final response = await http.get(uri, headers: _getHeaders(token));
     final data = _handleResponse(response);
-    if (data['success'] == true && data['claims'] != null) {
-      return data['claims'];
-    }
-    return [];
+    return (data['success'] == true && data['claims'] != null) ? data['claims'] : [];
   }
 
-  static Future<Map<String, dynamic>> confirmClaim({
-    required String token,
-    required String claimId,
-  }) async {
-    final response = await http.patch(
-      Uri.parse('${AppConfig.baseUrl}/claims/$claimId/confirm'),
-      headers: _getHeaders(token),
-    );
-
+  static Future<Map<String, dynamic>> confirmClaim({required String token, required String claimId}) async {
+    final response = await http.patch(Uri.parse('${AppConfig.baseUrl}/claims/$claimId/confirm'), headers: _getHeaders(token));
     return _handleResponse(response);
   }
 
-  static Future<Map<String, dynamic>> rejectClaim({
-    required String token,
-    required String claimId,
-    required String rejectionReason,
-  }) async {
+  static Future<Map<String, dynamic>> rejectClaim({required String token, required String claimId, required String rejectionReason}) async {
     final response = await http.patch(
       Uri.parse('${AppConfig.baseUrl}/claims/$claimId/reject'),
       headers: _getHeaders(token),
       body: jsonEncode({'rejection_reason': rejectionReason}),
     );
-
     return _handleResponse(response);
   }
 
-  // User endpoints
+  // ==========================
+  // User & Admin Endpoints
+  // ==========================
+
   static Future<List<UniversityItem>> getUserItems({
     required String token,
     String? type,
     String? claimed,
   }) async {
     var uri = Uri.parse('${AppConfig.baseUrl}/users/items');
-
     Map<String, String> queryParams = {};
     if (type != null) queryParams['type'] = type;
     if (claimed != null) queryParams['claimed'] = claimed;
+    if (queryParams.isNotEmpty) uri = uri.replace(queryParameters: queryParams);
 
-    if (queryParams.isNotEmpty) {
-      uri = uri.replace(queryParameters: queryParams);
-    }
-
-    final response = await http.get(
-      uri,
-      headers: _getHeaders(token),
-    );
-
+    final response = await http.get(uri, headers: _getHeaders(token));
     final data = _handleResponse(response);
-
     if (data['success'] == true && data['items'] != null) {
-      return (data['items'] as List)
-          .map((item) => UniversityItem.fromJson(item))
-          .toList();
+      return (data['items'] as List).map((item) => UniversityItem.fromJson(item)).toList();
     }
     return [];
   }
 
   static Future<AuthUser> getUserProfile(String token) async {
-    final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/users/profile'),
-      headers: _getHeaders(token),
-    );
-
+    final response = await http.get(Uri.parse('${AppConfig.baseUrl}/users/profile'), headers: _getHeaders(token));
     final data = _handleResponse(response);
-
-    if (data['success'] == true && data['user'] != null) {
-      return AuthUser.fromJson(data['user']);
-    }
+    if (data['success'] == true && data['user'] != null) return AuthUser.fromJson(data['user']);
     throw Exception('Failed to get profile');
   }
 
@@ -329,98 +322,55 @@ class ApiService {
       headers: _getHeaders(token),
       body: jsonEncode(body),
     );
-
     return _handleResponse(response);
   }
 
-  // Categories endpoint
   static Future<List<Category>> getCategories() async {
     final response = await http.get(Uri.parse('${AppConfig.baseUrl}/categories'), headers: _getHeaders());
     final data = _handleResponse(response);
-
     if (data['success'] == true && data['categories'] != null) {
-      return (data['categories'] as List)
-          .map((cat) => Category.fromJson(cat))
-          .toList();
+      return (data['categories'] as List).map((cat) => Category.fromJson(cat)).toList();
     }
     return [];
   }
 
-  // Admin endpoints
   static Future<AdminStats> getAdminStats(String token) async {
-    final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/admin/stats'),
-      headers: _getHeaders(token),
-    );
-
+    final response = await http.get(Uri.parse('${AppConfig.baseUrl}/admin/stats'), headers: _getHeaders(token));
     final data = _handleResponse(response);
-
-    if (data['success'] == true && data['stats'] != null) {
-      return AdminStats.fromJson(data['stats']);
-    }
+    if (data['success'] == true && data['stats'] != null) return AdminStats.fromJson(data['stats']);
     throw Exception('Failed to get stats');
   }
 
-  // Helper method
+  // ==========================
+  // Helper Methods
+  // ==========================
+
   static Map<String, dynamic> _handleResponse(http.Response response) {
-    // DEBUG LOG: FULL RESPONSE
-    debugPrint('--- API RESPONSE START ---');
-    debugPrint('URL: ${response.request?.url}');
-    debugPrint('Status Code: ${response.statusCode}');
-    debugPrint('Body: ${response.body}');
-    debugPrint('--- API RESPONSE END ---');
-
+    debugPrint('--- API RESPONSE [${response.statusCode}] ---');
     if (response.body.isEmpty) {
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'success': true};
-      }
-      throw Exception('Empty response from server (Status: ${response.statusCode})');
+      if (response.statusCode >= 200 && response.statusCode < 300) return {'success': true};
+      throw Exception('Empty response from server');
     }
-
     try {
       final data = jsonDecode(response.body);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return data;
-      } else {
-        throw Exception(data['error'] ?? 'Request failed (Status: ${response.statusCode})');
-      }
+      if (response.statusCode >= 200 && response.statusCode < 300) return data;
+      throw Exception(data['error'] ?? data['message'] ?? 'Request failed');
     } catch (e) {
-      if (response.statusCode == 404) {
-        throw Exception('Endpoint not found (404). Please check the API URL.');
-      }
-      if (response.statusCode == 500) {
-        throw Exception('Internal Server Error (500). Please try again later.');
-      }
-      if (e is FormatException) {
-        throw Exception('Server returned invalid data (HTML/Error page). Status: ${response.statusCode}');
-      }
-      throw Exception('Request failed (Status: ${response.statusCode})');
+      if (e is FormatException) throw Exception('Server error: Response was not valid JSON.');
+      rethrow;
     }
   }
 
-  static Future<Map<String, dynamic>> uploadImage({
-    required String token,
-    required File imageFile,
-  }) async {
+  static Future<Map<String, dynamic>> uploadImage({required String token, required File imageFile}) async {
     try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${AppConfig.baseUrl}/upload'),
-      );
-
-      request.headers.addAll(_getHeaders(token));
-
-      // Add the image file
-      var multipartFile = await http.MultipartFile.fromPath(
-        'file',
-        imageFile.path,
-      );
-
+      var request = http.MultipartRequest('POST', Uri.parse('${AppConfig.baseUrl}/upload'));
+      final headers = _getHeaders(token);
+      headers.remove('Content-Type'); 
+      request.headers.addAll(headers);
+      var multipartFile = await http.MultipartFile.fromPath('file', imageFile.path);
       request.files.add(multipartFile);
-
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-
       return _handleResponse(response);
     } catch (e) {
       throw Exception('Failed to upload image: $e');
