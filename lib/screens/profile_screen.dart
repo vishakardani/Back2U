@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
-import '../controllers/auth_controller.dart';
-import '../controllers/profile_controller.dart';
-import '../controllers/claim_controller.dart';
-import '../models/claim_model.dart';
-import 'auth_screen.dart';
-import 'item_detail_screen.dart'; // 👈 added
+import 'package:unifound/controllers/auth_controller.dart';
+import 'package:unifound/controllers/profile_controller.dart';
+import 'package:unifound/controllers/claim_controller.dart';
+import 'package:unifound/models/claim_model.dart';
+import 'package:unifound/screens/auth_screen.dart';
+import 'package:unifound/screens/item_detail_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -24,7 +23,10 @@ class ProfileScreen extends StatelessWidget {
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          title: const Text('Account', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          title: const Text(
+            'Account',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout, color: Colors.red),
@@ -34,11 +36,29 @@ class ProfileScreen extends StatelessWidget {
                     title: const Text('Logout'),
                     content: const Text('Are you sure you want to logout?'),
                     actions: [
-                      TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
                       TextButton(
-                        onPressed: () {
-                          authController.logout();
+                        onPressed: () => Get.back(),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          // 1. Force close the confirmation dialog view
+                          Get.back();
+                          
+                          // 2. Perform the state data cleanup processes
+                          await authController.logout();
+
+                          // 3. Explicitly drop the context stack and force view target route
                           Get.offAll(() => const AuthScreen());
+
+                          // 4. Fire localized completion snackbar notice
+                          Get.snackbar(
+                            'Logged Out',
+                            'You have been logged out successfully',
+                            snackPosition: SnackPosition.BOTTOM,
+                            backgroundColor: Colors.grey[700],
+                            colorText: Colors.white,
+                          );
                         },
                         child: const Text('Logout', style: TextStyle(color: Colors.red)),
                       ),
@@ -65,7 +85,9 @@ class ProfileScreen extends StatelessWidget {
           final user = authController.user.value;
           final isAdmin = authController.isAdmin.value;
 
-          if (user == null && !isAdmin) return const Center(child: CircularProgressIndicator());
+          if (user == null && !isAdmin) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
           return TabBarView(
             children: [
@@ -85,6 +107,13 @@ class ProfileScreen extends StatelessWidget {
     final admin = authController.admin.value;
     final isAdmin = authController.isAdmin.value;
 
+    String initial = 'U';
+    if (isAdmin && admin != null && admin.fullName.isNotEmpty) {
+      initial = admin.fullName[0].toUpperCase();
+    } else if (user != null && user.fullName.isNotEmpty) {
+      initial = user.fullName[0].toUpperCase();
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -93,16 +122,32 @@ class ProfileScreen extends StatelessWidget {
             radius: 50,
             backgroundColor: const Color(0xFF0D9488),
             child: Text(
-              isAdmin ? admin!.fullName[0].toUpperCase() : user!.firstName[0].toUpperCase(),
-              style: const TextStyle(fontSize: 40, color: Colors.white, fontWeight: FontWeight.bold),
+              initial,
+              style: const TextStyle(
+                fontSize: 40,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(height: 24),
-          _infoCard('Full Name', isAdmin ? admin!.fullName : user!.fullName, Icons.person_outline),
-          _infoCard('Email Address', isAdmin ? admin!.email : user!.email, Icons.email_outlined),
-          if (!isAdmin) ...[
-            _infoCard('University ID', user!.universityId, Icons.badge_outlined),
-            _infoCard('Phone Number', user.phone, Icons.phone_outlined),
+          _infoCard(
+            'Full Name',
+            isAdmin ? (admin?.fullName ?? 'Admin') : (user?.fullName ?? 'User'),
+            Icons.person_outline,
+          ),
+          _infoCard(
+            'Email Address',
+            isAdmin ? (admin?.email ?? '') : (user?.email ?? ''),
+            Icons.email_outlined,
+          ),
+          if (!isAdmin && user != null) ...[
+            _infoCard(
+              'University ID',
+              user.universityId ?? 'Not Provided',
+              Icons.badge_outlined,
+            ),
+            _infoCard('Phone Number', user.phone ?? 'Not Provided', Icons.phone_outlined),
           ],
         ],
       ),
@@ -122,12 +167,18 @@ class ProfileScreen extends StatelessWidget {
         children: [
           Icon(icon, color: const Color(0xFF0D9488)),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -136,7 +187,7 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildMyPostsTab(ProfileController controller) {
     return RefreshIndicator(
-      onRefresh: () => controller.refresh(),
+      onRefresh: () async => await controller.fetchMyItems(),
       child: Obx(() {
         if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
         if (controller.myItems.isEmpty) return _buildEmptyState('No items posted yet');
@@ -147,8 +198,8 @@ class ProfileScreen extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final item = controller.myItems[index];
-            return GestureDetector( // 👈 added
-              onTap: () => Get.to(() => ItemDetailScreen(item: item)), // 👈 added
+            return GestureDetector(
+              onTap: () => Get.to(() => ItemDetailScreen(item: item)),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -186,17 +237,13 @@ class ProfileScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: item.isClaimed
-                                ? Colors.green[50]
-                                : (item.itemType == 'lost' ? Colors.red[50] : Colors.teal[50]),
+                            color: item.isClaimed ? Colors.green[50] : (item.itemType == 'lost' ? Colors.red[50] : Colors.teal[50]),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             item.isClaimed ? "CLAIMED" : item.itemType.toUpperCase(),
                             style: TextStyle(
-                              color: item.isClaimed
-                                  ? Colors.green
-                                  : (item.itemType == 'lost' ? Colors.red : const Color(0xFF0D9488)),
+                              color: item.isClaimed ? Colors.green : (item.itemType == 'lost' ? Colors.red : const Color(0xFF0D9488)),
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -240,7 +287,7 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildSentClaimsTab(ClaimController controller) {
     return RefreshIndicator(
-      onRefresh: () => controller.fetchClaims(),
+      onRefresh: () async => await controller.fetchClaims(),
       child: Obx(() {
         if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
         if (controller.myClaims.isEmpty) return _buildEmptyState('You haven\'t raised any claims');
@@ -251,7 +298,7 @@ class ProfileScreen extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final claim = controller.myClaims[index];
-            return _buildClaimCard(claim, isSent: true);
+            return _buildClaimCard(claim, isSent: true, controller: controller);
           },
         );
       }),
@@ -260,7 +307,7 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildReceivedClaimsTab(ClaimController controller) {
     return RefreshIndicator(
-      onRefresh: () => controller.fetchClaims(),
+      onRefresh: () async => await controller.fetchClaims(),
       child: Obx(() {
         if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
         if (controller.receivedClaims.isEmpty) return _buildEmptyState('No claims received yet');
@@ -274,8 +321,9 @@ class ProfileScreen extends StatelessWidget {
             return _buildClaimCard(
               claim,
               isSent: false,
+              controller: controller,
               onConfirm: () => _confirmAction(
-                    () => controller.confirmClaim(claim.id),
+                () => controller.confirmClaim(claim.id),
                 'Confirm Claim',
                 'Are you sure you want to confirm this claim?',
               ),
@@ -306,15 +354,11 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildClaimCard(Claim claim, {required bool isSent, VoidCallback? onConfirm, Function(String)? onReject}) {
-    final statusColor = claim.status == 'confirmed'
-        ? Colors.green
-        : (claim.status == 'rejected' ? Colors.red : Colors.orange);
+  Widget _buildClaimCard(Claim claim, {required bool isSent, required ClaimController controller, VoidCallback? onConfirm, Function(String)? onReject}) {
+    final statusColor = claim.status == 'confirmed' ? Colors.green : (claim.status == 'rejected' ? Colors.red : Colors.orange);
 
-    return GestureDetector( // 👈 added
-      onTap: claim.item != null // 👈 added
-          ? () => Get.to(() => ItemDetailScreen(item: claim.item!))
-          : null,
+    return GestureDetector(
+      onTap: claim.item != null ? () => Get.to(() => ItemDetailScreen(item: claim.item!)) : null,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -329,54 +373,30 @@ class ProfileScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
-                    claim.item?.itemName ?? 'Unknown Item',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
+                  child: Text(claim.item?.itemName ?? 'Unknown Item', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    claim.status.toUpperCase(),
-                    style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(claim.status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            if (isSent)
-              Text('To: ${claim.item?.user?.fullName ?? 'Owner'}', style: TextStyle(color: Colors.grey[600], fontSize: 13))
-            else
-              Text('From: ${claim.claimant?.fullName ?? 'Claimant'}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-
+            Text(isSent ? 'To: ${claim.item?.user?.fullName ?? 'Owner'}' : 'From: ${claim.claimant?.fullName ?? 'Claimant'}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
             if (claim.message != null && claim.message!.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Message: ${claim.message}',
-                  style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
-                ),
+                decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12)),
+                child: Text('Message: ${claim.message}', style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic)),
               ),
             ],
-
             if (claim.rejectionReason != null) ...[
               const SizedBox(height: 8),
-              Text(
-                'Rejection Reason: ${claim.rejectionReason}',
-                style: const TextStyle(color: Colors.red, fontSize: 12),
-              ),
+              Text('Rejection Reason: ${claim.rejectionReason}', style: const TextStyle(color: Colors.red, fontSize: 12)),
             ],
-
             if (!isSent && claim.status == 'pending') ...[
               const SizedBox(height: 16),
               Row(
@@ -384,11 +404,7 @@ class ProfileScreen extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => _showRejectDialog(onReject),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       child: const Text('Reject'),
                     ),
                   ),
@@ -396,12 +412,7 @@ class ProfileScreen extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: onConfirm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       child: const Text('Confirm'),
                     ),
                   ),
@@ -421,10 +432,7 @@ class ProfileScreen extends StatelessWidget {
         title: const Text('Reject Claim'),
         content: TextField(
           controller: reasonController,
-          decoration: const InputDecoration(
-            hintText: 'Enter rejection reason (mandatory)',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(hintText: 'Enter rejection reason (mandatory)', border: OutlineInputBorder()),
           maxLines: 3,
         ),
         actions: [
