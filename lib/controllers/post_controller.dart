@@ -1,4 +1,3 @@
-// lib/controllers/post_controller.dart
 import 'dart:io';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
